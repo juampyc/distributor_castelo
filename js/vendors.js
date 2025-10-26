@@ -10,6 +10,7 @@ let inlineMap, inlineMarker;
 let geocoder;
 let placesAutocomplete = null;        // fallback clásico
 let paeEl = null;                     // PlaceAutocompleteElement (nuevo)
+const FORCE_CLASSIC_AUTOCOMPLETE = true; // fuerza fallback clásico para evitar 403 RPC
 
 let state = { page:1, pageSize:25, totalRows:0, search:'', role:'all', active:'all' };
 let lastRows = []; // para export
@@ -61,7 +62,10 @@ function debounce(fn,ms){ let t; return (...a)=>{clearTimeout(t); t=setTimeout((
 window.__initGoogleImpl = async function(){
   try{
     if(google?.maps?.importLibrary){
-      await google.maps.importLibrary('places');
+      await Promise.all([
+      google.maps.importLibrary('places'),
+      google.maps.importLibrary('marker'),
+      ]);
     }
     geocoder = new google.maps.Geocoder();
     setupAutocomplete();
@@ -85,7 +89,7 @@ function setupAutocomplete(force=false){
   if(!input || !window.google || !google.maps) return;
 
   // Preferir componente nuevo si está disponible
-  if(google.maps.places && google.maps.places.PlaceAutocompleteElement){
+  if(!FORCE_CLASSIC_AUTOCOMPLETE && google.maps.places && google.maps.places.PlaceAutocompleteElement){
     if(paeEl && !force) return;
     if(placesAutocomplete){ placesAutocomplete.unbindAll?.(); placesAutocomplete = null; }
     if(!paeEl){
@@ -99,6 +103,13 @@ function setupAutocomplete(force=false){
       paeEl.addEventListener('gmpxplacechange', onPlaceChangedFromElement);
     }
     return;
+  }
+
+  // Si venimos de componente nuevo y forzamos clásico, ocultar/eliminar el elemento para no duplicar UI
+  if(FORCE_CLASSIC_AUTOCOMPLETE && paeEl){
+    try{ paeEl.remove(); }catch(_){}
+    paeEl = null;
+    input.style.display = '';
   }
 
   // Fallback clásico
@@ -160,7 +171,7 @@ function fillFromAddressComponents(components, formatted){
 function initMainMap(){
   const el = $('#mapVendors');
   if(!el || !window.google || !google.maps) return;
-  gmap = new google.maps.Map(el, { center: { lat:-34.6037, lng:-58.3816 }, zoom: 11, mapTypeControl:false, streetViewControl:false });
+  gmap = new google.maps.Map(el, { center: { lat:-34.6037, lng:-58.3816 }, zoom: 11, mapTypeControl:false, streetViewControl:false, mapId:"751e0a095bf0a76685476d45" });
   updateMapMarkers([]);
 }
 function updateMapMarkers(rows){
@@ -183,7 +194,7 @@ function ensureInlineMap(){
   const el = $('#mapVendorInline');
   if(!el || !window.google) return;
   if(!inlineMap){
-    inlineMap = new google.maps.Map(el, { center:{lat:-34.6037, lng:-58.3816}, zoom:13, mapTypeControl:false, streetViewControl:false });
+    inlineMap = new google.maps.Map(el, { center:{lat:-34.6037, lng:-58.3816}, zoom:13, mapTypeControl:false, streetViewControl:false, mapId:"751e0a095bf0a76685476d45" });
   }
   const lat = parseFloat($('#lat').value||'0');
   const lng = parseFloat($('#lng').value||'0');
@@ -427,8 +438,8 @@ async function addNewSupplierType(){
   const { value: name } = await Swal.fire({ title:'Nuevo tipo de proveedor', input:'text', inputPlaceholder:'Ej: Latas', showCancelButton:true, confirmButtonText:'Guardar' });
   if(!name) return;
   const { data, error } = await sb.from('supplier_types').insert({ name }).select().single();
-  if(error){ return Swal.fire('Error','No se pudo crear','error'); }
-  await loadTypes();
+  if(error){ console.error('[supabase] insert supplier_types error ->', error); return Swal.fire('Error','No se pudo crear','error'); }
+await loadTypes();
   const sel = $('#supplier_types_multi');
   if(sel){ const opt = Array.from(sel.options).find(o=> String(o.value)===String(data.id)); if(opt){ opt.selected = true; renderSupplierChips(); } }
   Swal.fire('OK','Tipo creado','success');
