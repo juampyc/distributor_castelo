@@ -9,7 +9,8 @@ let gmap, gmarkers = [];
 let inlineMap, inlineMarker;
 let geocoder;
 let placesAutocomplete = null;        // fallback clásico
-let paeEl = null;                     // PlaceAutocompleteElement (nuevo)
+let paeEl = null;
+const FORCE_CLASSIC_AUTOCOMPLETE = true; // fuerza el uso del Autocomplete clásico para evitar 403 RPC                     // PlaceAutocompleteElement (nuevo)
 
 let state = { page:1, pageSize:25, totalRows:0, search:'', role:'all', active:'all' };
 let lastRows = []; // para export
@@ -87,8 +88,15 @@ function setupAutocomplete(force=false){
   const input = $('#direccion');
   if(!input || !window.google || !google.maps) return;
 
-  // Preferir componente nuevo si está disponible
-  if(google.maps.places && google.maps.places.PlaceAutocompleteElement){
+  
+  // Si forzamos clásico, eliminar el elemento nuevo y mostrar el input tradicional
+  if (FORCE_CLASSIC_AUTOCOMPLETE && typeof paeEl !== 'undefined' && paeEl) {
+    try { paeEl.remove(); } catch(_) {}
+    paeEl = null;
+    try { input.style.display = ''; } catch(_) {}
+  }
+// Preferir componente nuevo si está disponible
+  if(!FORCE_CLASSIC_AUTOCOMPLETE && google.maps.places && google.maps.places.PlaceAutocompleteElement){
     if(paeEl && !force) return;
     if(placesAutocomplete){ placesAutocomplete.unbindAll?.(); placesAutocomplete = null; }
     if(!paeEl){
