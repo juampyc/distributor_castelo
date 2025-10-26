@@ -10,7 +10,6 @@ let inlineMap, inlineMarker;
 let geocoder;
 let placesAutocomplete = null;        // fallback clásico
 let paeEl = null;                     // PlaceAutocompleteElement (nuevo)
-const FORCE_CLASSIC_AUTOCOMPLETE = true; // fuerza fallback clásico para evitar 403 RPC
 
 let state = { page:1, pageSize:25, totalRows:0, search:'', role:'all', active:'all' };
 let lastRows = []; // para export
@@ -89,7 +88,7 @@ function setupAutocomplete(force=false){
   if(!input || !window.google || !google.maps) return;
 
   // Preferir componente nuevo si está disponible
-  if(!FORCE_CLASSIC_AUTOCOMPLETE && google.maps.places && google.maps.places.PlaceAutocompleteElement){
+  if(google.maps.places && google.maps.places.PlaceAutocompleteElement){
     if(paeEl && !force) return;
     if(placesAutocomplete){ placesAutocomplete.unbindAll?.(); placesAutocomplete = null; }
     if(!paeEl){
@@ -103,13 +102,6 @@ function setupAutocomplete(force=false){
       paeEl.addEventListener('gmpxplacechange', onPlaceChangedFromElement);
     }
     return;
-  }
-
-  // Si venimos de componente nuevo y forzamos clásico, ocultar/eliminar el elemento para no duplicar UI
-  if(FORCE_CLASSIC_AUTOCOMPLETE && paeEl){
-    try{ paeEl.remove(); }catch(_){}
-    paeEl = null;
-    input.style.display = '';
   }
 
   // Fallback clásico
