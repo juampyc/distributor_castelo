@@ -1,8 +1,7 @@
 const fileInput = document.getElementById('csvFile');
 const btnImport = document.getElementById('btnImportCsv');
 const logEl = document.getElementById('importLog');
-
-btnImport.addEventListener('click', async ()=>{
+btnImport?.addEventListener('click', async ()=>{
   const f = fileInput.files?.[0];
   if(!f) return Swal.fire('Atención','Elegí un archivo CSV','info');
   const text = await f.text();
@@ -22,6 +21,6 @@ btnImport.addEventListener('click', async ()=>{
       partCount++;
     }
   }
-  logEl.innerHTML = `Importadas Provincias: <b>${provCount}</b> · Partidos: <b>${partCount}</b>`;
+  if(logEl) logEl.innerHTML = `Importadas Provincias: <b>${provCount}</b> · Partidos: <b>${partCount}</b>`;
   Swal.fire('OK','Importación finalizada','success');
 });
