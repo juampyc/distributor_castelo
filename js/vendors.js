@@ -1,3 +1,17 @@
+const USE_CLASSIC_AUTOCOMPLETE = /localhost|127\.0\.0\.1/.test(location.hostname);
+
+// Silenciar SOLO el warning de Autocomplete clásico en local (opcional)
+(function(){
+  if (!USE_CLASSIC_AUTOCOMPLETE) return;
+  const _warn = console.warn;
+  console.warn = function(...args){
+    try {
+      const txt = String(args[0] || '');
+      if (txt.includes('As of March 1st, 2025, google.maps.places.Autocomplete')) return;
+    } catch(_) {}
+    return _warn.apply(this, args);
+  };
+})();
 // ===== Helpers =====
 const $ = (q)=> document.querySelector(q);
 const $$ = (q)=> Array.from(document.querySelectorAll(q));
@@ -10,7 +24,7 @@ let inlineMap, inlineMarker;
 let geocoder;
 let placesAutocomplete = null;        // fallback clásico
 let paeEl = null;
-const FORCE_CLASSIC_AUTOCOMPLETE = true; // fuerza el uso del Autocomplete clásico para evitar 403 RPC                     // PlaceAutocompleteElement (nuevo)
+// fuerza el uso del Autocomplete clásico para evitar 403 RPC                     // PlaceAutocompleteElement (nuevo)
 
 let state = { page:1, pageSize:25, totalRows:0, search:'', role:'all', active:'all' };
 let lastRows = []; // para export
@@ -90,13 +104,13 @@ function setupAutocomplete(force=false){
 
   
   // Si forzamos clásico, eliminar el elemento nuevo y mostrar el input tradicional
-  if (FORCE_CLASSIC_AUTOCOMPLETE && typeof paeEl !== 'undefined' && paeEl) {
+  if (USE_CLASSIC_AUTOCOMPLETE && typeof paeEl !== 'undefined' && paeEl) {
     try { paeEl.remove(); } catch(_) {}
     paeEl = null;
     try { input.style.display = ''; } catch(_) {}
   }
 // Preferir componente nuevo si está disponible
-  if(!FORCE_CLASSIC_AUTOCOMPLETE && google.maps.places && google.maps.places.PlaceAutocompleteElement){
+  if(!USE_CLASSIC_AUTOCOMPLETE && google.maps.places && google.maps.places.PlaceAutocompleteElement){
     if(paeEl && !force) return;
     if(placesAutocomplete){ placesAutocomplete.unbindAll?.(); placesAutocomplete = null; }
     if(!paeEl){
