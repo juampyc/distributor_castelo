@@ -1,0 +1,2 @@
+window.SUPABASE_URL='https://ppgddcntovtbjnobyuog.supabase.co';
+window.SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ2RkY250b3Z0Ympub2J5dW9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzOTY0MTksImV4cCI6MjA3Njk3MjQxOX0.Q6pacXJeNE7Dp-KflhILqFMnG8Pr3n1PTs7mPjeUjF4';

@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Castelo · Clientes/Proveedores</title>
+  <link rel="icon" href="favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Barra lateral izquierda -->
+    <aside class="app-sidebar">
+      <div class="sidebar-inner">
+        <!-- Header sólo con botón de colapso -->
+        <div class="sidebar-header d-flex align-items-center justify-content-end mb-3">
+          <button id="sidebarCollapse" type="button" class="btn btn-sm btn-outline-light d-none d-md-inline-flex" aria-label="Contraer barra">
+            <i class="bi bi-chevron-double-left"></i>
+          </button>
+        </div>
+
+        <!-- Navegación -->
+        <nav class="nav flex-column sidebar-nav">
+          <a href="index.html" class="nav-link sidebar-link">
+            <i class="bi bi-house-door"></i>
+            <span class="link-text">Inicio</span>
+          </a>
+          <a href="vendor.html" class="nav-link sidebar-link active">
+            <i class="bi bi-people"></i>
+            <span class="link-text">Clientes / Proveedores</span>
+          </a>
+          <a href="products.html" class="nav-link sidebar-link">
+            <i class="bi bi-box-seam"></i>
+            <span class="link-text">Productos</span>
+          </a>
+          <a href="pricelists.html" class="nav-link sidebar-link">
+            <i class="bi bi-currency-dollar"></i>
+            <span class="link-text">Listas de precios</span>
+          </a>
+          <a href="sales.html" class="nav-link sidebar-link">
+            <i class="bi bi-receipt"></i>
+            <span class="link-text">Ventas</span>
+          </a>
+          <a href="customers.html" class="nav-link sidebar-link">
+            <i class="bi bi-person-lines-fill"></i>
+            <span class="link-text">Cuentas corrientes</span>
+          </a>
+          <a href="accounts.html" class="nav-link sidebar-link">
+            <i class="bi bi-wallet2"></i>
+            <span class="link-text">Cuentas</span>
+          </a>
+        </nav>
+
+        <!-- Logo / marca al pie -->
+        <div class="sidebar-brand d-flex align-items-center gap-2 mt-auto">
+          <i class="bi bi-box-seam fs-5"></i>
+          <span class="sidebar-title fw-semibold">Distribuidora</span>
+        </div>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="sidebar-backdrop d-md-none"></div>
+
+    <!-- Contenido principal -->
+    <div class="app-main">
+      <main class="container-fluid py-3 py-md-4">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <button id="sidebarToggle" class="btn btn-outline-secondary d-md-none me-2" type="button" aria-label="Menú principal">
+              <i class="bi bi-list"></i>
+            </button>
+            <h1 class="h4 m-0">Clientes / Proveedores</h1>
+          </div>
+        </div>
+
+        <section class="card p-3 p-md-4 mb-3">
+          <header class="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="card-title">Listado</h2>
+            <div class="small-muted">Gestión de altas y edición</div>
+          </header>
+
+          <!-- Toolbar superior -->
+          <div class="toolbar-pro mb-3">
+            <div class="tool-inline">
+              <div class="input-group search-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input id="searchInput" type="search" class="form-control" placeholder="Buscar nombre/localidad/rol/tipo"/>
+              </div>
+
+              <button id="btnAddVendor" class="btn btn-primary d-flex align-items-center justify-content-center" title="Nuevo cliente/proveedor">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+
+              <button id="btnRefreshVendors" class="btn btn-outline-secondary d-flex align-items-center justify-content-center" title="Recargar">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+
+              <!-- Toggle filtros (solo mobile) -->
+              <button class="btn btn-outline-primary d-sm-none ms-auto" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#filtersCollapse"
+                      aria-expanded="false" aria-controls="filtersCollapse">Filtros</button>
+            </div>
+            
+            <!-- Contenedor filtros: colapsable en mobile -->
+            <div id="filtersCollapse" class="collapse d-sm-block">
+              <div class="filters-inline">
+                <select id="filterRole" class="form-select">
+                  <option value="all">Todos</option>
+                  <option value="clients">Solo clientes</option>
+                  <option value="suppliers">Solo proveedores</option>
+                  <option value="both">Clientes y proveedores</option>
+                </select>
+                <select id="filterActive" class="form-select">
+                  <option value="all">Todos (activo/inactivo)</option>
+                  <option value="active">Activos</option>
+                  <option value="inactive">Inactivos</option>
+                </select>
+                <select id="pageSize" class="form-select">
+                  <option value="10">10</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabla -->
+          <div class="table-responsive pro-table">
+            <table class="table table-hover align-middle m-0" id="vendorsTable">
+              <thead>
+                <tr>
+                  <th style="width:90px">N°</th>
+                  <th>Nombre</th>
+                  <th style="width:260px">Roles / Estado / Tipo</th>
+                  <th style="width:220px">Contacto / Teléfono</th>
+                  <th class="text-end" style="width:120px">Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="d-flex align-items-center justify-content-between gap-2 mt-2 flex-wrap">
+            <div class="small-muted"><span id="rowsInfo"></span></div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <div class="exports-inline d-flex align-items-center gap-2">
+                <button id="btnExportCsv" class="btn btn-sm btn-outline-primary" aria-label="Exportar CSV">
+                  <i class="bi bi-filetype-csv"></i><span class="btn-label ms-1">CSV</span>
+                </button>
+                <button id="btnExportXlsx" class="btn btn-sm btn-outline-success" aria-label="Exportar Excel">
+                  <i class="bi bi-file-earmark-excel"></i><span class="btn-label ms-1">Excel</span>
+                </button>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" id="prevPage"><i class="bi bi-chevron-left"></i></button>
+                <span class="mx-1">Página <span id="pageIndicator">1</span></span>
+                <button class="btn btn-outline-secondary btn-sm" id="nextPage"><i class="bi bi-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- Mapa -->
+        <section class="card p-3 p-md-4">
+          <header class="d-flex align-items-center justify-content-between gap-2 mb-2">
+            <h2 class="card-title">Mapa</h2>
+            <div class="small-muted">Ubicaciones georreferenciadas</div>
+          </header>
+          <div id="mapVendors"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL (igual que el que ya funcionaba) -->
+  <div class="modal fade" id="vendorModal" tabindex="-1" data-bs-focus="false">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title d-flex align-items-center gap-2">
+            <i class="bi bi-person-gear me-1"></i><span id="vendorModalTitle">Clientes/Proveedores</span>
+            <span id="clientNumberBadge" class="badge text-bg-light border ms-2" style="display:none"></span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Mantengo exactamente tu formulario original -->
+          <form id="vendorForm" class="needs-validation" novalidate>
+            <input type="hidden" id="vendorId" />
+            <div class="row g-3">
+              <div class="col-12 col-md-8">
+                <label for="nombre" class="form-label">Nombre *</label>
+                <input id="nombre" class="form-control" required placeholder="Razón social o fantasía"/>
+                <div class="invalid-feedback">Ingresá el nombre.</div>
+              </div>
+              <div class="col-12 col-md-4 d-flex align-items-end">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" role="switch" id="is_active" checked>
+                  <label class="form-check-label" for="is_active">Activo</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="telefono" class="form-label">Teléfono</label>
+                <input id="telefono" class="form-control" placeholder="Ej: 11 5555 5555"/>
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="email" class="form-label">Email</label>
+                <input id="email" type="email" class="form-control" placeholder="ejemplo@mail.com"/>
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="contacto" class="form-label">Contacto</label>
+                <input id="contacto" class="form-control" placeholder="Nombre de contacto"/>
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="cuit" class="form-label">CUIT</label>
+                <input id="cuit" class="form-control" placeholder="XX-XXXXXXXX-X"/>
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="horario" class="form-label">Horario</label>
+                <input id="horario" class="form-control" placeholder="L a V 9-18"/>
+              </div>
+            </div>
+
+            <div class="form-section-title">Rol</div>
+            <div class="row g-3">
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="is_client" checked>
+                  <label class="form-check-label" for="is_client">Cliente</label>
+                </div>
+              </div>
+              <div class="col-12" id="clientTypeGroup">
+                <label for="comercio" class="form-label">Tipo de comercio</label>
+                <div class="input-group">
+                  <select id="comercio" class="form-select"><option value="">—</option></select>
+                  <button type="button" id="btnAddComercio" class="btn btn-outline-primary"><i class="bi bi-plus-lg"></i></button>
+                </div>
+              </div>
+            </div>
+            <div class="row g-3 mt-0">
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="is_supplier">
+                  <label class="form-check-label" for="is_supplier">Proveedor</label>
+                </div>
+              </div>
+              <div class="col-12" id="supplierTypeGroup" style="display:none">
+                <label class="form-label">Tipos de proveedor</label>
+                <div class="input-group">
+                  <select id="supplier_types_multi" class="form-select" multiple size="8"></select>
+                  <button type="button" id="btnAddSupplierType" class="btn btn-outline-primary"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div id="supplierChips" class="mt-2"></div>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <small class="text-secondary">Seleccionados: <span id="supplierCount">0</span></small>
+                  <button type="button" id="btnClearSupplier" class="btn btn-sm btn-outline-secondary">Limpiar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section-title">Ubicación</div>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Dirección (Google)</label>
+                <input id="direccion" class="form-control" placeholder="Escribí para buscar..." autocomplete="off"/>
+                <button type="button" id="confirmAddressBtn" class="btn btn-primary">
+                  ✓ Confirmar dirección
+                </button>
+                <div id="addressChip" class="mt-2"></div> 
+                <div class="d-flex gap-2 mt-2 flex-wrap">
+                  <button type="button" class="btn btn-outline-primary" id="btnGeo"><i class="bi bi-geo"></i> Geo actual</button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnCopyChip"><i class="bi bi-clipboard"></i> Copiar dirección</button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnOpenGmaps"><i class="bi bi-map"></i> Ver en Google Maps</button>
+                </div>
+                <div class="small-muted mt-1">Guardamos place_id y la dirección formateada.</div>
+              </div>
+              <input type="hidden" id="place_id" />
+              <input type="hidden" id="altura" />
+              <input type="hidden" id="localidad" />
+              <input type="hidden" id="admin_l2" />
+              <input type="hidden" id="admin_l1" />
+              <input type="hidden" id="country" />
+              <input type="hidden" id="postal_code" />
+            </div>
+
+            <div class="row g-3 mt-1">
+              <div class="col-6 col-md-3">
+                <label for="lat" class="form-label">Lat</label>
+                <input id="lat" class="form-control" placeholder="-34.6" />
+              </div>
+              <div class="col-6 col-md-3">
+                <label for="lng" class="form-label">Lng</label>
+                <input id="lng" class="form-control" placeholder="-58.4" />
+              </div>
+              <div class="col-12">
+                <div id="mapVendorInline"></div>
+              </div>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btnSaveVendor"><i class="bi bi-check2"></i> Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script src="js/app.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase_client.js"></script>
+  <script src="js/vendors.js"></script>
+  <script>
+    if(!window.initGoogle){ window.initGoogle = function(){ if(window.__initGoogleImpl) window.__initGoogleImpl(); }; }
+  </script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAnwdd4bK8HRu2Lyl8x9J8FdM1NwGJG0o8&v=beta&libraries=places,marker&language=es&region=AR&callback=initGoogle&loading=async"></script>
+</body>
+</html>
