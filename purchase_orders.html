@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Castelo · Órdenes de compra</title>
+  <link rel="icon" href="favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Barra lateral -->
+    <div id="sidebarContainer"></div>
+    <div id="sidebarBackdrop" class="sidebar-backdrop d-md-none"></div>
+
+    <!-- Contenido principal -->
+    <div class="app-main">
+      <main class="container-fluid py-3 py-md-4">
+
+        <!-- Título + botón menú mobile -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <button id="sidebarToggle" class="btn btn-outline-secondary d-md-none me-2" type="button" aria-label="Menú principal">
+              <i class="bi bi-list"></i>
+            </button>
+            <h1 class="h4 m-0">Órdenes de compra y recepción</h1>
+          </div>
+        </div>
+
+        <!-- Card principal: Órdenes -->
+        <section class="card p-3 p-md-4 mb-3">
+          <header class="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="card-title">Órdenes de compra</h2>
+            <div class="small-muted">Gestión de altas, edición y seguimiento</div>
+          </header>
+
+          <!-- Toolbar superior -->
+          <div class="toolbar-pro mb-3">
+            <!-- Línea principal: buscador + botones -->
+            <div class="tool-inline">
+              <div class="input-group search-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input id="poSearchInput" type="search" class="form-control" placeholder="Buscar proveedor / producto / número de orden">
+              </div>
+
+              <button id="btnAddOrder" class="btn btn-primary d-flex align-items-center justify-content-center" title="Nueva orden de compra">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+
+              <button id="btnRefreshOrders" class="btn btn-outline-secondary d-flex align-items-center justify-content-center" title="Recargar">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+
+              <!-- Toggle filtros (solo mobile) -->
+              <button class="btn btn-outline-primary d-sm-none ms-auto" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#poFiltersCollapse"
+                      aria-expanded="false" aria-controls="poFiltersCollapse">
+                Filtros
+              </button>
+            </div>
+
+            <!-- Filtros en una sola línea, achicados -->
+            <div id="poFiltersCollapse" class="collapse d-sm-block">
+              <div
+                class="filters-inline d-flex align-items-center gap-2 mt-2 mt-sm-0"
+                style="flex-wrap: nowrap;"
+              >
+                <div class="flex-grow-1 flex-md-0" style="min-width: 140px;">
+                  <select id="filterStatus" class="form-select form-select-sm">
+                    <option value="">Estado: Todos</option>
+                    <option value="PLANIFICADA">Planificadas</option>
+                    <option value="PARCIAL">Parciales</option>
+                    <option value="COMPLETA">Completas</option>
+                    <option value="CANCELADA">Canceladas</option>
+                  </select>
+                </div>
+
+                <div class="flex-grow-1 flex-md-0" style="min-width: 170px;">
+                  <select id="filterVendor" class="form-select form-select-sm">
+                    <option value="">Proveedor: Todos</option>
+                  </select>
+                </div>
+
+                <div class="flex-grow-1 flex-md-0" style="min-width: 130px;">
+                  <input id="filterDateFrom" type="date" class="form-control form-control-sm" placeholder="Desde">
+                </div>
+
+                <div class="flex-grow-1 flex-md-0" style="min-width: 130px;">
+                  <input id="filterDateTo" type="date" class="form-control form-control-sm" placeholder="Hasta">
+                </div>
+
+                <div class="flex-grow-0" style="min-width: 80px;">
+                  <select id="poPageSize" class="form-select form-select-sm">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabla de órdenes -->
+          <div class="table-responsive pro-table">
+            <table class="table table-hover align-middle m-0" id="purchaseOrdersTable">
+              <thead>
+                <tr>
+                  <th style="width: 110px;">Fecha</th>
+                  <th style="width: 140px;">Nº orden</th>
+                  <th>Proveedor</th>
+                  <th style="width: 110px;" class="text-center">Ítems</th>
+                  <th style="width: 140px;" class="text-center">Cant. pedida</th>
+                  <th style="width: 140px;" class="text-center">Cant. recibida</th>
+                  <th style="width: 120px;">Estado</th>
+                  <th style="width: 120px;" class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- Footer tabla órdenes -->
+          <div class="d-flex align-items-center justify-content-between gap-2 mt-2 flex-nowrap">
+            <div class="small-muted text-truncate">
+              <span id="poRowsInfo"></span>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+              <div class="exports-inline d-flex align-items-center gap-2">
+                <button id="btnExportPoCsv" class="btn btn-sm btn-outline-primary" aria-label="Exportar CSV">
+                  <i class="bi bi-filetype-csv"></i><span class="btn-label ms-1">CSV</span>
+                </button>
+                <button id="btnExportPoXlsx" class="btn btn-sm btn-outline-success" aria-label="Exportar Excel">
+                  <i class="bi bi-file-earmark-excel"></i><span class="btn-label ms-1">Excel</span>
+                </button>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" id="poPrevPage"><i class="bi bi-chevron-left"></i></button>
+                <span class="mx-1">Página <span id="poPageIndicator">1</span></span>
+                <button class="btn btn-outline-secondary btn-sm" id="poNextPage"><i class="bi bi-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Card secundaria: Líneas pendientes de recepción -->
+        <section class="card p-3 p-md-4">
+          <header class="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="card-title mb-0">Pendientes de recepción</h2>
+            <div class="small-muted">Detalle a nivel producto</div>
+          </header>
+
+          <div class="table-responsive pro-table">
+            <table class="table table-hover align-middle m-0" id="pendingLinesTable">
+              <thead>
+                <tr>
+                  <th style="width: 110px;">Fecha orden</th>
+                  <th style="width: 120px;">Nº orden</th>
+                  <th>Producto</th>
+                  <th style="width: 130px;">Fecha planificada</th>
+                  <th style="width: 120px;" class="text-center">Cant. pedida</th>
+                  <th style="width: 120px;" class="text-center">Cant. recibida</th>
+                  <th style="width: 120px;" class="text-center">Pendiente</th>
+                  <th style="width: 120px;">Estado orden</th>
+                  <th style="width: 110px;" class="text-end">Recibir</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal Orden de compra (cabecera + líneas) -->
+  <div class="modal fade" id="orderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title d-flex align-items-center gap-2">
+            <i class="bi bi-receipt-cutoff"></i>
+            <span id="orderModalTitle">Nueva orden de compra</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="orderForm" class="needs-validation" novalidate>
+            <input type="hidden" id="orderId">
+
+            <div class="row g-3 mb-3">
+              <div class="col-12 col-md-6">
+                <label for="poVendor" class="form-label">Proveedor *</label>
+                <select id="poVendor" class="form-select" required>
+                  <option value="">Seleccioná un proveedor</option>
+                </select>
+                <div class="invalid-feedback">Seleccioná el proveedor.</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <label for="poOrderDate" class="form-label">Fecha de orden *</label>
+                <input type="date" id="poOrderDate" class="form-control" required>
+                <div class="invalid-feedback">Seleccioná la fecha de la orden.</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <label for="poStatus" class="form-label">Estado</label>
+                <select id="poStatus" class="form-select" disabled>
+                  <option value="PLANIFICADA">PLANIFICADA</option>
+                  <option value="PARCIAL">PARCIAL</option>
+                  <option value="COMPLETA">COMPLETA</option>
+                  <option value="CANCELADA">CANCELADA</option>
+                </select>
+                <div class="form-text">Las recepciones actualizan el estado.</div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-12 col-md-4">
+                <label for="poReference" class="form-label">Referencia interna</label>
+                <input id="poReference" class="form-control" placeholder="Ej: OC-0001-2025">
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="poExternalNumber" class="form-label">Número externo</label>
+                <input id="poExternalNumber" class="form-control" placeholder="Nº orden proveedor / factura">
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="poNotes" class="form-label">Notas</label>
+                <input id="poNotes" class="form-control" placeholder="Comentarios adicionales">
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h6 class="mb-0">Líneas de la orden</h6>
+              <button type="button" id="btnAddItemRow" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-plus-lg"></i> Agregar producto
+              </button>
+            </div>
+
+            <div class="table-responsive pro-table mb-2">
+              <table class="table table-sm align-middle m-0" id="orderItemsTable">
+                <thead>
+                  <tr>
+                    <th style="width: 40%;">Producto</th>
+                    <th style="width: 15%;" class="text-center">Cantidad pedida</th>
+                    <th style="width: 15%;">Unidad</th>
+                    <th style="width: 20%;">Fecha planificada</th>
+                    <th style="width: 10%;" class="text-end">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="orderItemsBody">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+            <div class="small-muted">
+              Cada ítem puede tener su propia fecha planificada.<br>
+              Solo se permiten cantidades positivas. Más adelante la recepción actualizará lo recibido.
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btnSaveOrder">
+            <i class="bi bi-check2"></i> Guardar orden
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Recepción de mercadería -->
+  <div class="modal fade" id="receiveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title d-flex align-items-center gap-2">
+            <i class="bi bi-box-arrow-in-down"></i>
+            <span>Recepción de mercadería</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="receiveForm" class="needs-validation" novalidate>
+            <input type="hidden" id="receiveOrderId">
+            <input type="hidden" id="receiveItemId">
+            <input type="hidden" id="receiveProductId">
+
+            <div class="mb-2">
+              <div><strong>Proveedor:</strong> <span id="receiveVendorName"></span></div>
+              <div><strong>Nº orden:</strong> <span id="receiveOrderNumber"></span></div>
+              <div><strong>Producto:</strong> <span id="receiveProduct"></span></div>
+              <div><strong>Fecha planificada:</strong> <span id="receivePlannedDate"></span></div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-4">
+                <label class="form-label">Cant. pedida</label>
+                <input type="number" id="receiveQtyOrdered" class="form-control" readonly>
+              </div>
+              <div class="col-4">
+                <label class="form-label">Cant. recibida</label>
+                <input type="number" id="receiveQtyReceived" class="form-control" readonly>
+              </div>
+              <div class="col-4">
+                <label class="form-label">Pendiente</label>
+                <input type="number" id="receiveQtyPending" class="form-control" readonly>
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="row g-3 mb-3">
+              <div class="col-12 col-md-4">
+                <label for="receiveWarehouse" class="form-label">Depósito *</label>
+                <select id="receiveWarehouse" class="form-select" required>
+                  <option value="">Seleccioná depósito</option>
+                </select>
+                <div class="invalid-feedback">Seleccioná el depósito.</div>
+              </div>
+              <div class="col-6 col-md-4">
+                <label for="receiveDate" class="form-label">Fecha recepción *</label>
+                <input type="date" id="receiveDate" class="form-control" required>
+                <div class="invalid-feedback">Indicá la fecha de recepción.</div>
+              </div>
+              <div class="col-6 col-md-4">
+                <label for="receiveLot" class="form-label">Lote</label>
+                <input type="text" id="receiveLot" class="form-control" placeholder="Opcional">
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-6 col-md-4">
+                <label for="receiveExpiration" class="form-label">Vencimiento</label>
+                <input type="date" id="receiveExpiration" class="form-control" placeholder="Opcional">
+              </div>
+              <div class="col-6 col-md-4">
+                <label for="receiveQty" class="form-label">Cantidad a recibir *</label>
+                <input type="number" id="receiveQty" class="form-control" min="0.001" step="0.001" required>
+                <div class="invalid-feedback">Indicá una cantidad válida (&gt; 0 y ≤ pendiente).</div>
+              </div>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btnConfirmReception">
+            <i class="bi bi-check2"></i> Confirmar recepción
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script src="js/app.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase_client.js"></script>
+  <script src="js/sidebar_loader.js"></script>
+  <script src="js/purchase_orders.js"></script>
+</body>
+</html>

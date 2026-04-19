@@ -1,14 +1,41 @@
 /* ==========================
  *  products.js
- *  Pantalla Productos (similar a vendors.js)
+ *  Pantalla Productos
  * ========================== */
 
-// -------- Utilidades básicas (copiadas de vendors.js) --------
+// -------- Utilidades básicas --------
 const $  = (q)=> document.querySelector(q);
 const $$ = (q)=> Array.from(document.querySelectorAll(q));
 const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
-const esc = (s)=> String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const esc = (s)=> String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&#39;'}[m]));
 function debounce(fn,ms){ let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms);} }
+
+// -------- SweetAlert helpers --------
+function showSuccessToast(title, text){
+  return Swal.fire({
+    icon: 'success',
+    title: title || 'OK',
+    text: text || '',
+    toast: true,
+    position: 'top',
+    showConfirmButton: false,
+    timer: 2000,
+    timerProgressBar: true
+  });
+}
+
+function showErrorToast(title, text){
+  return Swal.fire({
+    icon: 'error',
+    title: title || 'Error',
+    text: text || '',
+    toast: true,
+    position: 'top',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true
+  });
+}
 
 // -------- Estado global --------
 let productsState = {
@@ -19,13 +46,15 @@ let productsState = {
   filters: {
     productTypeId: '',
     brandId: '',
-    active: 'all' // all | active | inactive
+    active: 'all'
   }
 };
 
-let lastProducts = [];      // para export y edición
-let modalProduct = null;    // instancia Bootstrap modal
-let kitProductOptions = []; // lista de productos para componentes de kit
+let lastProducts = [];
+let modalProduct = null;
+let containersMeta = {};            // envases (id -> {id,name,is_kit})
+let productTypesOptions = [];       // categorías
+let productSubcategoryOptions = []; // subcategorías (para combos + kits)
 
 // -------- Arranque --------
 document.addEventListener('DOMContentLoaded', () => {
@@ -36,15 +65,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initProductsApp(){
-  // Espera a que el cliente Supabase (sb) esté listo
   while (!window.sb) { await sleep(50); }
 
   await loadProductTypes();
+  await loadSubcategories();
   await loadBrands();
   await loadContainers();
   await loadSizes();
   await loadUnits();
-  await loadKitProductOptions();
   setupDropdownPlusProducts();
 
   await listProducts();
@@ -55,7 +83,6 @@ async function initProductsApp(){
 
 // -------- Enlaces UI --------
 function bindProductsUI(){
-  // Toolbar
   $('#btnRefreshProducts')?.addEventListener('click', ()=>{
     productsState.page = 1;
     listProducts();
@@ -69,7 +96,6 @@ function bindProductsUI(){
 
   $('#btnAddProduct')?.addEventListener('click', ()=> openProductModal());
 
-  // usar #pageSize igual que vendors
   $('#pageSize')?.addEventListener('change', (e)=>{
     productsState.pageSize = +e.target.value || 25;
     productsState.page = 1;
@@ -88,7 +114,6 @@ function bindProductsUI(){
     listProducts();
   });
 
-  // Paginación
   $('#productsPrevPage')?.addEventListener('click', ()=>{
     if (productsState.page > 1) {
       productsState.page--;
@@ -103,21 +128,17 @@ function bindProductsUI(){
     }
   });
 
-  // Export
   $('#btnExportProductsCsv')?.addEventListener('click', ()=> exportProducts('csv'));
   $('#btnExportProductsXlsx')?.addEventListener('click', ()=> exportProducts('xlsx'));
 
-  // Tabla (acciones)
   $('#productsTable tbody')?.addEventListener('click', onProductsTableClick);
 
-  // Modal
   $('#btnSaveProduct')?.addEventListener('click', saveProduct);
 
-  // Radios de forma de despacho
-  $('#dispatchFormSell')?.addEventListener('change', onDispatchFormChange);
-  $('#dispatchFormKit')?.addEventListener('change', onDispatchFormChange);
+  // Cambio de envase (controla kit / producto y visibilidad de campos)
+  $('#productContainerSelect')?.addEventListener('change', onContainerChange);
 
-  // Botón agregar componente kit
+  // Componentes de kit
   $('#btnAddKitComponent')?.addEventListener('click', ()=> addKitComponentRow());
 }
 
@@ -131,6 +152,8 @@ async function loadProductTypes(selectedId){
 
     const { data, error } = await sb.from('product_type').select('*').order('name');
     if (error) { console.warn('loadProductTypes err', error); return; }
+
+    productTypesOptions = data || [];
 
     (data||[]).forEach(t=>{
       if (filterSel){
@@ -154,9 +177,36 @@ async function loadProductTypes(selectedId){
   }catch(e){ console.warn('loadProductTypes ex', e); }
 }
 
+async function loadSubcategories(selectedId){
+  try{
+    const formSel = $('#productSubcategorySelect');
+    if (formSel) formSel.innerHTML = '<option value="">—</option>';
+
+    const { data, error } = await sb.from('product_subcategory').select('*').order('name');
+    if (error){
+      console.warn('loadSubcategories err', error);
+      return;
+    }
+
+    productSubcategoryOptions = data || [];
+
+    (data || []).forEach(sc => {
+      if (formSel){
+        const o = document.createElement('option');
+        o.value = sc.id;
+        o.textContent = sc.name;
+        formSel.appendChild(o);
+      }
+    });
+
+    if (selectedId && formSel) formSel.value = selectedId;
+  }catch(e){
+    console.warn('loadSubcategories ex', e);
+  }
+}
+
 async function loadBrands(selectedId){
   try{
-    // sólo modal: no hay filtro de marca
     const formSel   = $('#productBrandSelect');
     if (formSel)   formSel.innerHTML   = '<option value="">—</option>';
 
@@ -181,10 +231,23 @@ async function loadContainers(selectedId){
     const formSel = $('#productContainerSelect');
     if (formSel) formSel.innerHTML = '<option value="">—</option>';
 
-    const { data, error } = await sb.from('container').select('*').order('name');
-    if (error){ console.warn('loadContainers err', error); return; }
+    const { data, error } = await sb
+      .from('container')
+      .select('id, name, is_kit')
+      .order('name');
 
+    if (error){
+      console.warn('loadContainers err', error);
+      return;
+    }
+
+    containersMeta = {};
     (data||[]).forEach(t=>{
+      containersMeta[t.id] = {
+        id: t.id,
+        name: t.name,
+        is_kit: !!t.is_kit
+      };
       if (formSel){
         const o = document.createElement('option');
         o.value = t.id;
@@ -194,7 +257,9 @@ async function loadContainers(selectedId){
     });
 
     if (selectedId && formSel) formSel.value = selectedId;
-  }catch(e){ console.warn('loadContainers ex', e); }
+  }catch(e){
+    console.warn('loadContainers ex', e);
+  }
 }
 
 async function loadSizes(selectedId){
@@ -239,25 +304,10 @@ async function loadUnits(selectedId){
   }catch(e){ console.warn('loadUnits ex', e); }
 }
 
-async function loadKitProductOptions(){
-  try{
-    const { data, error } = await sb
-      .from('product')
-      .select('id, code, description, is_active, deleted_at')
-      .is('deleted_at', null)
-      .eq('is_active', true)
-      .order('code');
-
-    if (error){ console.warn('loadKitProductOptions err', error); return; }
-    kitProductOptions = data || [];
-  }catch(e){ console.warn('loadKitProductOptions ex', e); }
-}
-
-// -------- DropdownPlus para catálogos --------
+// -------- DropdownPlus --------
 function setupDropdownPlusProducts(){
   if (!window.registerDropdownPlus) return;
 
-  // Tipo de producto (solo modal)
   if ($('#btnAddProductTypeForm')){
     registerDropdownPlus({
       table: 'product_type',
@@ -268,7 +318,16 @@ function setupDropdownPlusProducts(){
     });
   }
 
-  // Marca (solo modal)
+  if ($('#btnAddSubcategoryForm')){
+    registerDropdownPlus({
+      table: 'product_subcategory',
+      labelField: 'name',
+      displayName: 'sub categoría',
+      addButton: $('#btnAddSubcategoryForm'),
+      onCreated: (row)=> loadSubcategories(row.id)
+    });
+  }
+
   if ($('#btnAddBrandForm')){
     registerDropdownPlus({
       table: 'brand',
@@ -279,18 +338,20 @@ function setupDropdownPlusProducts(){
     });
   }
 
-  // Envase
   if ($('#btnAddContainerForm')){
     registerDropdownPlus({
       table: 'container',
       labelField: 'name',
       displayName: 'envase',
       addButton: $('#btnAddContainerForm'),
-      onCreated: (row)=> loadContainers(row.id)
+      // recarga envases y actualiza UI (producto/kit)
+      onCreated: async (row)=>{
+        await loadContainers(row.id);
+        onContainerChange();
+      }
     });
   }
 
-  // Tamaño
   if ($('#btnAddSizeForm')){
     registerDropdownPlus({
       table: 'size',
@@ -301,7 +362,6 @@ function setupDropdownPlusProducts(){
     });
   }
 
-  // Unidad
   if ($('#btnAddUnitForm')){
     registerDropdownPlus({
       table: 'unit',
@@ -313,7 +373,7 @@ function setupDropdownPlusProducts(){
   }
 }
 
-// -------- Listado de productos --------
+// -------- Listado --------
 async function listProducts(){
   try{
     const tbody = $('#productsTable tbody');
@@ -341,7 +401,6 @@ async function listProducts(){
     }
     if (ors.length) q = q.or(ors.join(','));
 
-    // Filtros
     if (productsState.filters.productTypeId){
       q = q.eq('product_type_id', productsState.filters.productTypeId);
     }
@@ -465,12 +524,12 @@ async function onDeleteProduct(id){
 
   if (error){
     console.error('deleteProduct error', error);
-    return Swal.fire('Error', 'No se pudo eliminar el producto', 'error');
+    showErrorToast('Error','No se pudo eliminar el producto');
+    return;
   }
 
   await listProducts();
-  await loadKitProductOptions();
-  Swal.fire('OK', 'Producto eliminado (borrado lógico)', 'success');
+  showSuccessToast('OK','Producto eliminado (borrado lógico)');
 }
 
 // -------- Modal producto --------
@@ -483,10 +542,12 @@ function openProductModal(row){
 
   $('#productId').value = row?.id || '';
   $('#productCode').value = row?.code || '';
+  $('#productSku').value = row?.sku || '';
   $('#productDescription').value = row?.description || '';
   $('#productNotes').value = row?.notes || '';
 
   $('#productTypeSelect').value = row?.product_type_id || '';
+  $('#productSubcategorySelect').value = row?.product_subcategory_id || '';
   $('#productBrandSelect').value = row?.brand_id || '';
   $('#productContainerSelect').value = row?.container_id || '';
   $('#productSizeSelect').value = row?.size_id || '';
@@ -494,21 +555,13 @@ function openProductModal(row){
 
   $('#productIsActive').checked = (row?.is_active ?? true);
 
-  const df = row?.dispatch_form || 'se_vende';
-  if (df === 'kit'){
-    $('#dispatchFormKit').checked = true;
-    $('#dispatchFormSell').checked = false;
-  } else {
-    $('#dispatchFormSell').checked = true;
-    $('#dispatchFormKit').checked = false;
-  }
-  onDispatchFormChange();
-
-  // Kit
   resetKitComponentsTable();
-  if (row?.is_kit || row?.dispatch_form === 'kit'){
+  if (row?.id && (row.is_kit || row.dispatch_form === 'kit')){
     loadKitComponents(row.id);
   }
+
+  // Ajustar visibilidad según envase
+  onContainerChange();
 
   $('#productModalTitle').textContent = row ? 'Editar producto' : 'Nuevo producto';
 
@@ -519,26 +572,170 @@ function openProductModal(row){
   modalProduct?.show();
 }
 
-function onDispatchFormChange(){
-  const isKit = $('#dispatchFormKit')?.checked;
+// -------- Envase: controla kit / producto y campos --------
+function onContainerChange(){
+  const sel = $('#productContainerSelect');
   const section = $('#kitComponentsSection');
-  if (!section) return;
-  if (isKit){
-    section.classList.remove('d-none');
-  } else {
-    section.classList.add('d-none');
+  const sizeUnitFields = $$('.size-unit-field');
+  if (!sel){
+    return;
   }
+
+  const id = sel.value || '';
+
+  if (!id){
+    if (section) section.classList.add('d-none');
+    sizeUnitFields.forEach(el=> el && el.classList.add('d-none'));
+    return;
+  }
+
+  const meta = containersMeta[id];
+  const isKit = meta?.is_kit === true;
+
+  if (section){
+    if (isKit) section.classList.remove('d-none');
+    else section.classList.add('d-none');
+  }
+
+  sizeUnitFields.forEach(el=>{
+    if (!el) return;
+    if (isKit) el.classList.add('d-none');
+    else el.classList.remove('d-none');
+  });
 }
 
+// -------- Kit helpers --------
 function resetKitComponentsTable(){
   const body = $('#kitComponentsBody');
   if (!body) return;
   body.innerHTML = `<tr class="text-muted">
-    <td colspan="3" class="small text-center">Sin componentes</td>
+    <td colspan="5" class="small text-center">Sin componentes</td>
   </tr>`;
 }
 
-function addKitComponentRow(componentId, qty){
+function makeKitChip(label){
+  const span = document.createElement('span');
+  span.className = 'badge bg-light text-secondary border rounded-pill kit-chip';
+  span.textContent = label;
+  return span;
+}
+
+/**
+ * Actualiza los chips visibles en una fila de kit
+ */
+function updateKitRowChips(tr){
+  const chipList   = tr.querySelector('.kit-chip-list');
+  const requiredSel= tr.querySelector('.kit-component-required');
+  const fixedSel   = tr.querySelector('.kit-component-fixed');
+  const altSel     = tr.querySelector('.kit-component-alt');
+  if (!chipList || !requiredSel || !fixedSel || !altSel) return;
+
+  chipList.innerHTML = '';
+
+  const isOptional = requiredSel.value === 'optional';
+
+  if (!isOptional){
+    const opt = fixedSel.selectedOptions?.[0];
+    if (opt && opt.value){
+      chipList.appendChild(makeKitChip(opt.textContent));
+    }
+  } else {
+    const selected = Array.from(altSel.selectedOptions || []);
+    selected.forEach(o=>{
+      if (o.value){
+        chipList.appendChild(makeKitChip(o.textContent));
+      }
+    });
+  }
+}
+
+/**
+ * Carga productos activos por subcategoría y llena los selects de una fila de kit
+ */
+async function populateRowProductsForSubcat(tr, subcatId, opts = {}){
+  const fixedSel = tr.querySelector('.kit-component-fixed');
+  const altSel   = tr.querySelector('.kit-component-alt');
+  if (!fixedSel || !altSel) return;
+
+  fixedSel.innerHTML = '<option value="">Seleccionar producto...</option>';
+  altSel.innerHTML   = '';
+  altSel.size = 3;
+
+  if (!subcatId){
+    updateKitRowChips(tr);
+    return;
+  }
+
+  try{
+    const { data, error } = await sb
+      .from('product')
+      .select('id, code, description')
+      .eq('product_subcategory_id', subcatId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .order('code');
+
+    if (error){
+      console.warn('populateRowProductsForSubcat error', error);
+      return;
+    }
+
+    (data || []).forEach(p => {
+      const label = `${p.code || ''} - ${p.description || ''}`.trim();
+
+      // opción para producto fijo
+      const opt1 = document.createElement('option');
+      opt1.value = p.id;
+      opt1.textContent = label;
+      fixedSel.appendChild(opt1);
+
+      // opción para productos alternativos
+      const opt2 = document.createElement('option');
+      opt2.value = p.id;
+      opt2.textContent = label;
+      altSel.appendChild(opt2);
+    });
+
+    // aplicar selección previa (si viene de BD)
+    if (opts.fixedProductId){
+      fixedSel.value = opts.fixedProductId;
+    }
+
+    if (Array.isArray(opts.altIds) && opts.altIds.length){
+      const idsSet = new Set(opts.altIds.map(String));
+      Array.from(altSel.options).forEach(o=>{
+        if (idsSet.has(String(o.value))) o.selected = true;
+      });
+    }
+
+    updateKitRowChips(tr);
+  }catch(e){
+    console.warn('populateRowProductsForSubcat ex', e);
+  }
+}
+
+/**
+ * Actualiza la visibilidad de selects según obligatorio/opcional
+ */
+function updateRowRequiredOptional(tr){
+  const requiredSel = tr.querySelector('.kit-component-required');
+  const fixedSel    = tr.querySelector('.kit-component-fixed');
+  const altSel      = tr.querySelector('.kit-component-alt');
+  if (!requiredSel || !fixedSel || !altSel) return;
+
+  const isOptional = requiredSel.value === 'optional';
+  if (isOptional){
+    fixedSel.classList.add('d-none');
+    altSel.classList.remove('d-none');
+  } else {
+    fixedSel.classList.remove('d-none');
+    altSel.classList.add('d-none');
+  }
+
+  updateKitRowChips(tr);
+}
+
+function addKitComponentRow(componentSubcatId, qty, isOptional, fixedProductId, altIds){
   const body = $('#kitComponentsBody');
   if (!body) return;
 
@@ -546,15 +743,30 @@ function addKitComponentRow(componentId, qty){
   if (emptyRow) emptyRow.remove();
 
   const tr = document.createElement('tr');
+  const optValue = isOptional ? 'optional' : 'required';
 
   tr.innerHTML = `
     <td>
       <select class="form-select form-select-sm kit-component-select">
-        <option value="">Seleccionar...</option>
+        <option value="">Seleccionar sub categoría...</option>
       </select>
     </td>
     <td>
       <input type="number" class="form-control form-control-sm kit-component-qty" min="0" step="0.01" value="${qty ?? ''}">
+    </td>
+    <td>
+      <select class="form-select form-select-sm kit-component-required">
+        <option value="required">Obligatorio</option>
+        <option value="optional">Opcional</option>
+      </select>
+    </td>
+    <td>
+      <select class="form-select form-select-sm kit-component-fixed mb-1">
+        <option value="">Seleccionar producto...</option>
+      </select>
+      <select multiple class="form-select form-select-sm kit-component-alt d-none" size="3">
+      </select>
+      <div class="kit-chip-list mt-1 d-flex flex-wrap gap-1 small"></div>
     </td>
     <td class="text-end">
       <button type="button" class="btn btn-sm btn-outline-danger btn-remove-kit-component">
@@ -563,26 +775,66 @@ function addKitComponentRow(componentId, qty){
     </td>
   `;
 
-  const sel = tr.querySelector('.kit-component-select');
-  if (sel){
-    sel.innerHTML = '<option value="">Seleccionar...</option>';
-    const currentId = $('#productId')?.value || null;
-    (kitProductOptions||[]).forEach(p=>{
-      if (currentId && String(p.id) === String(currentId)) return;
+  // llenar subcategorías
+  const subcatSel = tr.querySelector('.kit-component-select');
+  if (subcatSel){
+    subcatSel.innerHTML = '<option value="">Seleccionar sub categoría...</option>';
+    (productSubcategoryOptions || []).forEach(sc=>{
       const o = document.createElement('option');
-      o.value = p.id;
-      o.textContent = `${p.code} - ${p.description}`;
-      sel.appendChild(o);
+      o.value = sc.id;
+      o.textContent = sc.name;
+      subcatSel.appendChild(o);
     });
-    if (componentId) sel.value = componentId;
+    if (componentSubcatId) subcatSel.value = componentSubcatId;
   }
+
+  const requiredSel = tr.querySelector('.kit-component-required');
+  const fixedSel    = tr.querySelector('.kit-component-fixed');
+  const altSel      = tr.querySelector('.kit-component-alt');
+
+  if (requiredSel){
+    requiredSel.value = optValue;
+  }
+
+  // listeners de fila
+  subcatSel?.addEventListener('change', ()=>{
+    const sid = subcatSel.value || '';
+    populateRowProductsForSubcat(tr, sid, {});
+  });
+
+  requiredSel?.addEventListener('change', ()=>{
+    updateRowRequiredOptional(tr);
+  });
+
+  fixedSel?.addEventListener('change', ()=>{
+    updateKitRowChips(tr);
+  });
+
+  altSel?.addEventListener('change', ()=>{
+    updateKitRowChips(tr);
+  });
 
   tr.querySelector('.btn-remove-kit-component')?.addEventListener('click', ()=>{
     tr.remove();
-    if (!$('#kitComponentsBody tr')) resetKitComponentsTable();
+    const hasRows = !!$('#kitComponentsBody tr');
+    if (!hasRows){
+      resetKitComponentsTable();
+    }
   });
 
   body.appendChild(tr);
+
+  // setear modo obligatorio/opcional inicial
+  updateRowRequiredOptional(tr);
+
+  // si ya viene con subcategoría y productos (modo edición), los cargamos
+  if (componentSubcatId){
+    const opts = {
+      fixedProductId: fixedProductId || null,
+      altIds: Array.isArray(altIds) ? altIds : (altIds ? altIds : [])
+    };
+    populateRowProductsForSubcat(tr, componentSubcatId, opts);
+  }
 }
 
 async function loadKitComponents(kitId){
@@ -591,11 +843,25 @@ async function loadKitComponents(kitId){
     resetKitComponentsTable();
     const { data, error } = await sb
       .from('product_kit_map')
-      .select('component_product_id, quantity')
+      .select('component_subcategory_id, quantity, is_optional, fixed_product_id, alternative_product_ids')
       .eq('kit_id', kitId);
     if (error){ console.warn('loadKitComponents err', error); return; }
-    (data||[]).forEach(r=> addKitComponentRow(r.component_product_id, r.quantity));
-  }catch(e){ console.warn('loadKitComponents ex', e); }
+
+    (data||[]).forEach(r=> {
+      const altIds = Array.isArray(r.alternative_product_ids)
+        ? r.alternative_product_ids
+        : (r.alternative_product_ids || []);
+      addKitComponentRow(
+        r.component_subcategory_id,
+        r.quantity,
+        !!r.is_optional,
+        r.fixed_product_id,
+        altIds
+      );
+    });
+  }catch(e){
+    console.warn('loadKitComponents ex', e);
+  }
 }
 
 // -------- Guardar producto --------
@@ -610,26 +876,30 @@ async function saveProduct(){
 
   const id = $('#productId').value || null;
   const code = $('#productCode').value.trim();
+  const sku  = $('#productSku').value.trim() || null;
   const description = $('#productDescription').value.trim();
   const notes = $('#productNotes').value.trim() || null;
 
-  const product_type_id = $('#productTypeSelect').value || null;
-  const brand_id        = $('#productBrandSelect').value || null;
-  const container_id    = $('#productContainerSelect').value || null;
-  const size_id         = $('#productSizeSelect').value || null;
-  const unit_id         = $('#productUnitSelect').value || null;
+  const product_type_id        = $('#productTypeSelect').value || null;
+  const product_subcategory_id = $('#productSubcategorySelect').value || null;
+  const brand_id               = $('#productBrandSelect').value || null;
+  const container_id           = $('#productContainerSelect').value || null;
+  const size_id                = $('#productSizeSelect').value || null;
+  const unit_id                = $('#productUnitSelect').value || null;
 
   const is_active = $('#productIsActive').checked;
 
-  const dispatchFormRadio = document.querySelector('input[name="dispatchForm"]:checked');
-  const dispatch_form = dispatchFormRadio ? dispatchFormRadio.value : 'se_vende';
-  const is_kit = dispatch_form === 'kit';
+  const meta = container_id ? containersMeta[container_id] : null;
+  const is_kit = meta?.is_kit === true;
+  const dispatch_form = is_kit ? 'kit' : 'producto';
 
   const payload = {
     code,
+    sku,
     description,
     notes,
     product_type_id,
+    product_subcategory_id,
     brand_id,
     container_id,
     size_id,
@@ -653,24 +923,22 @@ async function saveProduct(){
 
   if (error){
     console.error('saveProduct error', error);
-    return Swal.fire('Error','No se pudo guardar el producto','error');
+    showErrorToast('Error','No se pudo guardar el producto');
+    return;
   }
 
-  // Componentes de kit
   const okKit = await saveKitComponents(productId, is_kit);
-  if (!okKit) return; // adentro muestra mensajes
+  if (!okKit) return;
 
   modalProduct?.hide();
   await listProducts();
-  await loadKitProductOptions();
-  Swal.fire('OK','Producto guardado','success');
+  showSuccessToast('OK','Producto guardado');
 }
 
 async function saveKitComponents(kitId, isKit){
-  if (!kitId) return true; // nada que hacer
+  if (!kitId) return true;
 
   if (!isKit){
-    // ya no es kit, borramos cualquier mapa
     try{
       await sb.from('product_kit_map').delete().eq('kit_id', kitId);
     }catch(e){ console.warn('saveKitComponents delete ex', e); }
@@ -679,20 +947,67 @@ async function saveKitComponents(kitId, isKit){
 
   const rows = $$('#kitComponentsBody tr');
   const components = [];
+  let hasError = false;
+  let errorMsg = '';
 
   rows.forEach(tr=>{
-    const sel = tr.querySelector('.kit-component-select');
-    const qtyInput = tr.querySelector('.kit-component-qty');
-    if (!sel || !qtyInput) return;
-    const cid = sel.value;
+    const subcatSel   = tr.querySelector('.kit-component-select');
+    const qtyInput    = tr.querySelector('.kit-component-qty');
+    const requiredSel = tr.querySelector('.kit-component-required');
+    const fixedSel    = tr.querySelector('.kit-component-fixed');
+    const altSel      = tr.querySelector('.kit-component-alt');
+
+    if (!subcatSel || !qtyInput || !requiredSel || !fixedSel || !altSel) return;
+
+    const subcatId = subcatSel.value;
     const qty = parseFloat(qtyInput.value);
-    if (!cid || !Number.isFinite(qty) || qty <= 0) return;
-    components.push({
-      kit_id: kitId,
-      component_product_id: cid,
-      quantity: qty
-    });
+    const is_optional = requiredSel.value === 'optional';
+
+    if (!subcatId || !Number.isFinite(qty) || qty <= 0){
+      hasError = true;
+      errorMsg = 'Completá sub categoría y cantidad en todos los componentes del kit.';
+      return;
+    }
+
+    if (!is_optional){
+      // Obligatorio → debe tener un producto fijo
+      const fixedId = fixedSel.value;
+      if (!fixedId){
+        hasError = true;
+        errorMsg = 'Los componentes obligatorios deben tener un producto seleccionado.';
+        return;
+      }
+      components.push({
+        kit_id: kitId,
+        component_subcategory_id: subcatId,
+        quantity: qty,
+        is_optional: false,
+        fixed_product_id: fixedId,
+        alternative_product_ids: null
+      });
+    } else {
+      // Opcional → debe tener uno o más productos alternativos
+      const altIds = Array.from(altSel.selectedOptions || []).map(o=>o.value).filter(Boolean);
+      if (!altIds.length){
+        hasError = true;
+        errorMsg = 'Los componentes opcionales deben tener al menos un producto alternativo.';
+        return;
+      }
+      components.push({
+        kit_id: kitId,
+        component_subcategory_id: subcatId,
+        quantity: qty,
+        is_optional: true,
+        fixed_product_id: null,
+        alternative_product_ids: altIds
+      });
+    }
   });
+
+  if (hasError){
+    await Swal.fire('Atención', errorMsg || 'Revisá los datos de los componentes del kit.', 'warning');
+    return false;
+  }
 
   if (!components.length){
     await Swal.fire('Atención','Un producto tipo kit debe tener al menos un componente válido','warning');
@@ -704,12 +1019,12 @@ async function saveKitComponents(kitId, isKit){
     const { error } = await sb.from('product_kit_map').insert(components);
     if (error){
       console.error('saveKitComponents insert error', error);
-      await Swal.fire('Error','No se pudieron guardar los componentes del kit','error');
+      await showErrorToast('Error','No se pudieron guardar los componentes del kit');
       return false;
     }
   }catch(e){
     console.error('saveKitComponents ex', e);
-    await Swal.fire('Error','No se pudieron guardar los componentes del kit','error');
+    await showErrorToast('Error','No se pudieron guardar los componentes del kit');
     return false;
   }
 
@@ -722,7 +1037,8 @@ async function exportProducts(format){
     const { data, error } = await sb.from('products_view').select('*').order('code');
     if (error){
       console.error('exportProducts error', error);
-      return Swal.fire('Error','No se pudo exportar la lista de productos','error');
+      showErrorToast('Error','No se pudo exportar la lista de productos');
+      return;
     }
 
     const rows = (data||[]).map(p=>({
@@ -744,6 +1060,6 @@ async function exportProducts(format){
     }
   }catch(e){
     console.error('exportProducts ex', e);
-    Swal.fire('Error','No se pudo exportar la lista de productos','error');
+    showErrorToast('Error','No se pudo exportar la lista de productos');
   }
 }

@@ -10,6 +10,33 @@ const esc = (s)=> String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;',
 function v(id){ return $('#'+id)?.value?.trim()||''; }
 function debounce(fn,ms){ let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms);} }
 
+// -------- SweetAlert helpers (toasts) --------
+function showSuccessToast(title, text){
+  return Swal.fire({
+    icon: 'success',
+    title: title || 'OK',
+    text: text || '',
+    toast: true,
+    position: 'top',
+    showConfirmButton: false,
+    timer: 2000,
+    timerProgressBar: true
+  });
+}
+
+function showErrorToast(title, text){
+  return Swal.fire({
+    icon: 'error',
+    title: title || 'Error',
+    text: text || '',
+    toast: true,
+    position: 'top',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true
+  });
+}
+
 // -------- Estado global --------
 let gmap, gmarkers = [];
 let geocoder;
@@ -416,13 +443,18 @@ async function geoAndReverse(latId,lngId){
         }
       });
     }
-  }, ()=> Swal.fire('Error','No pudimos leer tu ubicación','error'), { enableHighAccuracy:true, timeout:8000 });
+  }, ()=> showErrorToast('Error','No pudimos leer tu ubicación'), { enableHighAccuracy:true, timeout:8000 });
 }
 async function copyAddressChip(){
   const txt = $('#addressChip')?.innerText?.trim();
   if(!txt) return Swal.fire('Info','No hay dirección para copiar','info');
-  try{ await navigator.clipboard.writeText(txt); Swal.fire('OK','Dirección copiada','success'); }
-  catch{ Swal.fire('Atención','No se pudo copiar','info'); }
+  try{
+    await navigator.clipboard.writeText(txt);
+    showSuccessToast('OK','Dirección copiada');
+  }
+  catch{
+    Swal.fire('Atención','No se pudo copiar','info');
+  }
 }
 function openInGoogleMaps(){
   const lat = $('#lat')?.value, lng = $('#lng')?.value, pid = $('#place_id')?.value;
@@ -518,6 +550,24 @@ async function loadTypes(){
     const sel2 = $('#supplier_types_multi');
     if(sel2) sel2.innerHTML = (st||[]).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
   }catch(e){ console.warn('loadTypes err', e); }
+  // Nombres de listas de precio (para clientes)
+  try{
+    const { data: pln, error: plnErr } = await sb
+      .from('price_list_names')
+      .select('id, name, is_active')
+      .is('deleted_at', null)
+      .order('name');
+    if(plnErr) console.warn('price_list_names err', plnErr);
+
+    const selPL = $('#default_price_list_name_id');
+    if(selPL){
+      selPL.innerHTML = '<option value="">—</option>' + (pln||[]).map(p=>{
+        const lbl = p.is_active ? p.name : `${p.name} (INACTIVA)`;
+        return `<option value="${p.id}">${esc(lbl)}</option>`;
+      }).join('');
+    }
+  }catch(e){ console.warn('price_list_names load err', e); }
+
 }
 
 async function listVendors(){
@@ -546,7 +596,11 @@ async function listVendors(){
   if(state.role==='both')       q = q.eq('is_client', true).eq('is_supplier', true);
 
   const { data, error, count } = await q;
-  if(error){ console.error('listVendors error', error); Swal.fire('Error','No se pudo listar','error'); return; }
+  if(error){
+    console.error('listVendors error', error);
+    showErrorToast('Error','No se pudo listar');
+    return;
+  }
 
   state.totalRows = count||0;
   const rows = data||[];
@@ -564,6 +618,13 @@ async function listVendors(){
 }
 
 // ---- chips de la columna Roles / Estado / Tipo ----
+function priceListNameChip(r){
+  if(!r.is_client) return '';
+  const name = r.default_price_list_name || '';
+  if(!name) return '';
+  return `<span class="chip chip-pl"><span class="dot"></span> ${esc(name)}</span>`;
+}
+
 function roleChips(r){
   const chips = [];
   if(r.is_client)   chips.push(`<span class="chip role"><span class="dot"></span> Cliente</span>`);
@@ -576,7 +637,7 @@ function stateChip(r){
   return `<span class="chip state ${cls}"><span class="dot"></span> ${txt}</span>`;
 }
 function tipoChip(r){
-  const tipo = r.is_client ? (r.comercio_name || '') : (r.supplier_names_csv || '');
+  const tipo = r.is_client ? (r.comercio_name || '') : (r.supplier_type_name || '');
   if(!tipo) return '';
   return `<span class="chip chip-type"><span class="dot"></span> ${esc(tipo)}</span>`;
 }
@@ -592,7 +653,7 @@ function renderRow(r){
     </td>
     <td>
       <div class="chips">
-        ${roleChips(r)} ${stateChip(r)} ${tipoChip(r)}
+        ${roleChips(r)} ${stateChip(r)} ${tipoChip(r)} ${priceListNameChip(r)}
       </div>
     </td>
     <td>
@@ -627,7 +688,8 @@ async function onDelete(e){
   if(!res.isConfirmed) return;
   await sb.from('clients').delete().eq('id', id);
   await sb.from('clients_supplier_types').delete().eq('client_id', id);
-  await listVendors(); Swal.fire('OK','Registro eliminado','success');
+  await listVendors();
+  showSuccessToast('OK','Registro eliminado');
 }
 
 function onRoleChange(){
@@ -635,6 +697,7 @@ function onRoleChange(){
   const isCli = $('#is_client')?.checked;
   if($('#supplierTypeGroup')) $('#supplierTypeGroup').style.display = isSup ? '' : 'none';
   if($('#clientTypeGroup'))   $('#clientTypeGroup').style.display   = isCli ? '' : 'none';
+  if($('#priceListNameGroup')) $('#priceListNameGroup').style.display = isCli ? '' : 'none';
 }
 
 function openVendorModal(row){
@@ -656,6 +719,16 @@ function openVendorModal(row){
   onRoleChange();
 
   if($('#comercio')) $('#comercio').value = row?.comercio_type_id ?? '';
+
+  // Lista de precios por defecto (cliente)
+  const plid = row?.default_price_list_name_id ?? '';
+  const plSel = $('#default_price_list_name_id');
+  if(plSel){
+    plSel.value = plid;
+    // reintentos por si options llegan luego
+    setTimeout(()=>{ try{ plSel.value = plid; }catch(_){ } }, 0);
+    setTimeout(()=>{ try{ plSel.value = plid; }catch(_){ } }, 200);
+  }
 
   const sel = $('#supplier_types_multi');
   if(sel){
@@ -709,20 +782,30 @@ async function addNewCommerceType(){
   const { value: name } = await Swal.fire({ title:'Nuevo tipo de comercio', input:'text', inputPlaceholder:'Ej: Bar', showCancelButton:true, confirmButtonText:'Guardar' });
   if(!name) return;
   const { data, error } = await sb.from('commerce_types').insert({ name }).select().single();
-  if(error){ return Swal.fire('Error','No se pudo crear','error'); }
+  if(error){
+    showErrorToast('Error','No se pudo crear');
+    return;
+  }
   await loadTypes();
   if($('#comercio')) $('#comercio').value = data.id;
-  Swal.fire('OK','Tipo creado','success');
+  showSuccessToast('OK','Tipo creado');
 }
 async function addNewSupplierType(){
   const { value: name } = await Swal.fire({ title:'Nuevo tipo de proveedor', input:'text', inputPlaceholder:'Ej: Latas', showCancelButton:true, confirmButtonText:'Guardar' });
   if(!name) return;
   const { data, error } = await sb.from('supplier_types').insert({ name }).select().single();
-  if(error){ console.error('[supabase] insert supplier_types error ->', error); return Swal.fire('Error','No se pudo crear','error'); }
+  if(error){
+    console.error('[supabase] insert supplier_types error ->', error);
+    showErrorToast('Error','No se pudo crear');
+    return;
+  }
   await loadTypes();
   const sel = $('#supplier_types_multi');
-  if(sel){ const opt = Array.from(sel.options).find(o=> String(o.value)===String(data.id)); if(opt){ opt.selected = true; renderSupplierChips(); } }
-  Swal.fire('OK','Tipo creado','success');
+  if(sel){
+    const opt = Array.from(sel.options).find(o=> String(o.value)===String(data.id));
+    if(opt){ opt.selected = true; renderSupplierChips(); }
+  }
+  showSuccessToast('OK','Tipo creado');
 }
 function clearSupplierSelection(){
   const sel = $('#supplier_types_multi');
@@ -750,6 +833,7 @@ async function saveVendor(){
     is_client: isClient,
     is_supplier: isSupplier,
     comercio_type_id: v('comercio') || null,
+    default_price_list_name_id: ($('#is_client')?.checked ? (v('default_price_list_name_id') || null) : null),
     localidad: v('localidad') || null, altura: v('altura') || null, direccion: v('direccion') || null,
     lat: v('lat')? parseFloat(v('lat')): null, lng: v('lng')? parseFloat(v('lng')): null,
     address_formatted: $('#addressChip')?.innerText?.trim() || null,
@@ -764,7 +848,10 @@ async function saveVendor(){
   let error, data, rowId = id;
   if(id){ ({ error } = await sb.from('clients').update(payload).eq('id', id)); }
   else   { ({ data, error } = await sb.from('clients').insert(payload).select().single()); rowId = data?.id || id; }
-  if(error) return Swal.fire('Error','No se pudo guardar','error');
+  if(error){
+    showErrorToast('Error','No se pudo guardar');
+    return;
+  }
 
   const sel = $('#supplier_types_multi');
   const selectedIds = sel ? Array.from(sel.selectedOptions).map(o=> Number(o.value)) : [];
@@ -777,7 +864,8 @@ async function saveVendor(){
   }
 
   bootstrap.Modal.getInstance($('#vendorModal'))?.hide();
-  await listVendors(); Swal.fire('OK','Guardado','success');
+  await listVendors();
+  showSuccessToast('OK','Guardado');
 }
 
 // -------- Export --------
@@ -786,7 +874,7 @@ function exportCSV(){
   const headers = ['Nro','Nombre','Activo','Cliente','Proveedor','Tipo','Contacto','Teléfono','Dirección'];
   const lines = [headers.join(';')];
   rows.forEach(r=>{
-    const tipo = r.is_client ? (r.comercio_name||'') : (r.supplier_names_csv||'');
+    const tipo = r.is_client ? (r.comercio_name||'') : (r.supplier_type_name||'');
     lines.push([r.client_number||'', r.nombre||'', r.is_active, r.is_client, r.is_supplier, tipo, r.contacto||'', r.telefono||'', r.address_formatted||''].map(v=> String(v).replace(/;/g,',')).join(';'));
   });
   const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
@@ -800,7 +888,7 @@ function exportXLSX(){
     Activo: r.is_active?'Sí':'No',
     Cliente: r.is_client?'Sí':'No',
     Proveedor: r.is_supplier?'Sí':'No',
-    Tipo: r.is_client ? (r.comercio_name||'') : (r.supplier_names_csv||''),
+    Tipo: r.is_client ? (r.comercio_name||'') : (r.supplier_type_name||''),
     Contacto: r.contacto||'',
     Teléfono: r.telefono||'',
     Dirección: r.address_formatted||''

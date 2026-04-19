@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Castelo · Ventas</title>
+  <link rel="icon" href="favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebarContainer"></div>
+    <div id="sidebarBackdrop" class="sidebar-backdrop d-md-none"></div>
+
+    <div class="app-main">
+      <main class="container-fluid py-3 py-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <button id="sidebarToggle" class="btn btn-outline-secondary d-md-none me-2" type="button" aria-label="Menú principal">
+              <i class="bi bi-list"></i>
+            </button>
+            <h1 class="h4 m-0">Ventas</h1>
+          </div>
+        </div>
+
+        <section class="card p-3 p-md-4 mb-3">
+          <header class="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="card-title">Listado</h2>
+            <div class="small-muted" id="salesSummaryText">Gestión de ventas (borrador/confirmada/cancelada).</div>
+          </header>
+
+          <div class="toolbar-pro mb-3">
+            <div class="tool-inline d-flex align-items-center gap-2 flex-nowrap">
+              <div class="input-group search-group" style="max-width: 360px; flex: 0 0 360px;">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input id="salesSearchInput" type="search" class="form-control" placeholder="Buscar cliente / nº venta / referencia" />
+              </div>
+
+              <select id="filterSaleStatus" class="form-select" style="max-width: 190px; flex: 0 0 190px;">
+                <option value="CONFIRMED" selected>Confirmadas</option>
+                <option value="DRAFT">Borrador</option>
+                <option value="DISPATCHED">Despachadas</option>
+                <option value="CANCELLED">Canceladas</option>
+                <option value="">Todas</option>
+              </select>
+
+              <button id="btnAddSale" class="btn btn-primary d-flex align-items-center justify-content-center" title="Nueva venta">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive pro-table">
+            <table class="table table-hover align-middle m-0" id="salesTable">
+              <thead>
+                <tr>
+                  <th style="min-width: 120px;">Fecha</th>
+                  <th style="min-width: 150px;">Nº Venta</th>
+                  <th style="min-width: 240px;">Cliente</th>
+                  <th style="min-width: 120px;">Estado</th>
+                  <th style="min-width: 140px;" class="text-end">Total</th>
+                  <th style="min-width: 220px;">Referencia / Notas</th>
+                  <th style="min-width: 180px;" class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="salesTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+
+        <!-- Modal Despacho -->
+        <div class="modal fade" id="dispatchModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="dispatchModalTitle">Despachar venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="small-muted mb-2" id="dispatchSaleInfo"></div>
+                <div class="table-responsive pro-table">
+                  <table class="table table-sm align-middle m-0">
+                    <thead>
+                      <tr>
+                        <th style="width:34%;">Producto</th>
+                        <th style="width:18%;">Lote</th>
+                        <th style="width:12%;" class="text-center">Disponible</th>
+                        <th style="width:12%;" class="text-center">Reservada</th>
+                        <th style="width:14%;" class="text-center">Cantidad</th>
+                        <th style="width:14%;" class="text-end">Acc.</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dispatchBody"></tbody>
+                  </table>
+                </div>
+                <div class="small text-muted mt-2">Sugerencia FIFO por vencimiento / antigüedad. Podés dividir (split) por lotes.</div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" id="btnConfirmDispatch" class="btn btn-primary">
+                  <i class="bi bi-truck me-1"></i> Confirmar despacho
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="modal fade" id="saleModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="saleModalTitle">Nueva venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <form id="saleForm" class="needs-validation" novalidate>
+                  <input type="hidden" id="saleId">
+                  <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-6">
+                      <label class="form-label">Cliente *</label>
+                      <select id="saleCustomer" class="form-select" required>
+                        <option value="">Seleccioná cliente</option>
+                      </select>
+                      <div class="invalid-feedback">Seleccioná un cliente.</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                      <label class="form-label">Fecha *</label>
+                      <input id="saleDate" type="date" class="form-control" required>
+                      <div class="invalid-feedback">Indicá la fecha.</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                      <label class="form-label">Estado</label>
+                      <select id="saleStatus" class="form-select" disabled>
+                        <option value="DRAFT">DRAFT</option>
+                        <option value="CONFIRMED">CONFIRMED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-3">
+                      <label class="form-label">Número / Referencia</label>
+                      <input id="saleNumber" class="form-control" placeholder="Ej: V-000123">
+                    </div>
+                    <div class="col-12 col-md-3">
+                      <label class="form-label">Notas</label>
+                      <input id="saleNotes" class="form-control" placeholder="Opcional">
+                    </div>
+                    <div class="col-12 col-md-3">
+                      <label class="form-label">Lista de precios</label>
+                      <select id="salePriceListName" class="form-select">
+                        <option value="">—</option>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                      <label class="form-label">Revisión</label>
+                      <select id="salePriceListRevision" class="form-select">
+                        <option value="">—</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <hr>
+
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="mb-0">Ítems</h6>
+                    <button type="button" id="btnAddSaleItemRow" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-plus-lg"></i> Agregar producto
+                    </button>
+                  </div>
+
+                  <div class="table-responsive pro-table mb-2">
+                    <table class="table table-sm align-middle m-0" id="saleItemsTable">
+                      <thead>
+                        <tr>
+                          <th style="width: 40%;">Producto</th>
+                          <th style="width: 12%;" class="text-center">Cantidad</th>
+                          <th style="width: 16%;" class="text-center">Precio unit.</th>
+                          <th style="width: 12%;" class="text-center">Desc. %</th>
+                          <th style="width: 15%;" class="text-end">Subtotal</th>
+                          <th style="width: 5%;" class="text-end">Acc.</th>
+                        </tr>
+                      </thead>
+                      <tbody id="saleItemsBody"></tbody>
+                    </table>
+                  </div>
+
+                  <div class="d-flex justify-content-end">
+                    <div class="text-end">
+                      <div class="small text-muted">Total</div>
+                      <div class="h5 m-0" id="saleTotalText">$ 0</div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnUndoDispatch" class="btn btn-outline-warning me-auto" style="display:none;"><i class="bi bi-arrow-counterclockwise me-1"></i> Cancelar despacho</button>
+<button type="button" id="btnSaveSale" class="btn btn-outline-primary">
+                  <i class="bi bi-save me-1"></i> Guardar borrador
+                </button>
+                <button type="button" id="btnConfirmSale" class="btn btn-primary">
+                  <i class="bi bi-check2-circle me-1"></i> Hacer pedido
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <script src="js/app.js"></script>
+  <script src="js/sidebar_loader.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase_client.js"></script>
+
+  <script src="js/sales.js?v=20260222_22"></script>
+</body>
+</html>

@@ -12,54 +12,7 @@
 <body>
   <div class="app-shell">
     <!-- Barra lateral izquierda -->
-    <aside class="app-sidebar">
-      <div class="sidebar-inner">
-        <!-- Header sólo con botón de colapso -->
-        <div class="sidebar-header d-flex align-items-center justify-content-end mb-3">
-          <button id="sidebarCollapse" type="button" class="btn btn-sm btn-outline-light d-none d-md-inline-flex" aria-label="Contraer barra">
-            <i class="bi bi-chevron-double-left"></i>
-          </button>
-        </div>
-
-        <!-- Navegación -->
-        <nav class="nav flex-column sidebar-nav">
-          <a href="index.html" class="nav-link sidebar-link">
-            <i class="bi bi-house-door"></i>
-            <span class="link-text">Inicio</span>
-          </a>
-          <a href="vendor.html" class="nav-link sidebar-link">
-            <i class="bi bi-people"></i>
-            <span class="link-text">Clientes / Proveedores</span>
-          </a>
-          <a href="products.html" class="nav-link sidebar-link active">
-            <i class="bi bi-box-seam"></i>
-            <span class="link-text">Productos</span>
-          </a>
-          <a href="pricelists.html" class="nav-link sidebar-link">
-            <i class="bi bi-currency-dollar"></i>
-            <span class="link-text">Listas de precios</span>
-          </a>
-          <a href="sales.html" class="nav-link sidebar-link">
-            <i class="bi bi-receipt"></i>
-            <span class="link-text">Ventas</span>
-          </a>
-          <a href="customers.html" class="nav-link sidebar-link">
-            <i class="bi bi-person-lines-fill"></i>
-            <span class="link-text">Cuentas corrientes</span>
-          </a>
-          <a href="accounts.html" class="nav-link sidebar-link">
-            <i class="bi bi-wallet2"></i>
-            <span class="link-text">Cuentas</span>
-          </a>
-        </nav>
-
-        <!-- Logo / marca al pie -->
-        <div class="sidebar-brand d-flex align-items-center gap-2 mt-auto">
-          <i class="bi bi-box-seam fs-5"></i>
-          <span class="sidebar-title fw-semibold">Distribuidora</span>
-        </div>
-      </div>
-    </aside>
+    <div id="sidebarContainer"></div>
 
     <div id="sidebarBackdrop" class="sidebar-backdrop d-md-none"></div>
 
@@ -76,19 +29,20 @@
           </div>
         </div>
 
-        <!-- Card listado de productos -->
+        <!-- Card listado -->
         <section class="card p-3 p-md-4 mb-3">
           <header class="d-flex align-items-center justify-content-between gap-2 mb-3">
             <h2 class="card-title">Listado</h2>
             <div class="small-muted">Gestión de altas, edición y kits</div>
           </header>
 
-          <!-- Toolbar superior -->
+          <!-- Toolbar -->
           <div class="toolbar-pro mb-3">
             <div class="tool-inline">
               <div class="input-group search-group">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input id="productsSearchInput" type="search" class="form-control" placeholder="Buscar código / descripción / marca / tipo"/>
+                <input id="productsSearchInput" type="search" class="form-control"
+                       placeholder="Buscar código / descripción / marca / tipo"/>
               </div>
 
               <button id="btnAddProduct" class="btn btn-primary d-flex align-items-center justify-content-center" title="Nuevo producto">
@@ -99,13 +53,13 @@
                 <i class="bi bi-arrow-clockwise"></i>
               </button>
 
-              <!-- Toggle filtros (solo mobile) -->
               <button class="btn btn-outline-primary d-sm-none ms-auto" type="button"
                       data-bs-toggle="collapse" data-bs-target="#productsFiltersCollapse"
-                      aria-expanded="false" aria-controls="productsFiltersCollapse">Filtros</button>
+                      aria-expanded="false" aria-controls="productsFiltersCollapse">
+                Filtros
+              </button>
             </div>
 
-            <!-- Contenedor filtros: colapsable en mobile -->
             <div id="productsFiltersCollapse" class="collapse d-sm-block">
               <div class="filters-inline">
                 <select id="filterProductType" class="form-select">
@@ -139,13 +93,11 @@
                   <th class="text-end" style="width:120px">Acciones</th>
                 </tr>
               </thead>
-              <tbody>
-                <!-- filas dinámicas -->
-              </tbody>
+              <tbody></tbody>
             </table>
           </div>
 
-          <!-- Paginación + Export -->
+          <!-- Paginación + export -->
           <div class="d-flex align-items-center justify-content-between gap-2 mt-2 flex-wrap">
             <div class="small-muted"><span id="productsRowsInfo"></span></div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -191,14 +143,21 @@
                 <input id="productCode" class="form-control" required/>
                 <div class="invalid-feedback">Ingresá el código.</div>
               </div>
-              <div class="col-12 col-md-8">
+
+              <div class="col-12 col-md-4">
+                <label for="productSku" class="form-label">SKU</label>
+                <input id="productSku" class="form-control"/>
+              </div>
+
+              <div class="col-12 col-md-4">
                 <label for="productDescription" class="form-label">Descripción *</label>
                 <input id="productDescription" class="form-control" required/>
                 <div class="invalid-feedback">Ingresá la descripción.</div>
               </div>
 
-              <div class="col-12 col-md-6">
-                <label for="productTypeSelect" class="form-label">Tipo de producto</label>
+              <!-- Fila: Categoría / Sub categoría / Marca -->
+              <div class="col-12 col-md-4">
+                <label for="productTypeSelect" class="form-label">Categoría</label>
                 <div class="input-group">
                   <select id="productTypeSelect" class="form-select">
                     <option value="">—</option>
@@ -209,7 +168,19 @@
                 </div>
               </div>
 
-              <div class="col-12 col-md-6">
+              <div class="col-12 col-md-4">
+                <label for="productSubcategorySelect" class="form-label">Sub categoría</label>
+                <div class="input-group">
+                  <select id="productSubcategorySelect" class="form-select">
+                    <option value="">—</option>
+                  </select>
+                  <button type="button" id="btnAddSubcategoryForm" class="btn btn-outline-primary">
+                    <i class="bi bi-plus-lg"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-4">
                 <label for="productBrandSelect" class="form-label">Marca</label>
                 <div class="input-group">
                   <select id="productBrandSelect" class="form-select">
@@ -218,6 +189,19 @@
                   <button type="button" id="btnAddBrandForm" class="btn btn-outline-primary">
                     <i class="bi bi-plus-lg"></i>
                   </button>
+                </div>
+              </div>
+
+              <!-- Notas + Activo en la misma fila -->
+              <div class="col-12 col-md-8">
+                <label for="productNotes" class="form-label">Notas</label>
+                <textarea id="productNotes" rows="2" class="form-control"></textarea>
+              </div>
+
+              <div class="col-12 col-md-4 d-flex align-items-end">
+                <div class="form-check form-switch mt-2 mt-md-0">
+                  <input class="form-check-input" type="checkbox" id="productIsActive" checked>
+                  <label class="form-check-label" for="productIsActive">Activo</label>
                 </div>
               </div>
 
@@ -233,8 +217,8 @@
                 </div>
               </div>
 
-              <div class="col-12 col-md-4">
-                <label for="productSizeSelect" class="form-label">Tamaño</label>
+              <div class="col-12 col-md-4 size-unit-field d-none">
+                <label for="productSizeSelect" class="form-label">Tamaño / Presentación</label>
                 <div class="input-group">
                   <select id="productSizeSelect" class="form-select">
                     <option value="">—</option>
@@ -245,8 +229,8 @@
                 </div>
               </div>
 
-              <div class="col-12 col-md-4">
-                <label for="productUnitSelect" class="form-label">Unidad</label>
+              <div class="col-12 col-md-4 size-unit-field d-none">
+                <label for="productUnitSelect" class="form-label">Unidad de venta</label>
                 <div class="input-group">
                   <select id="productUnitSelect" class="form-select">
                     <option value="">—</option>
@@ -254,28 +238,6 @@
                   <button type="button" id="btnAddUnitForm" class="btn btn-outline-primary">
                     <i class="bi bi-plus-lg"></i>
                   </button>
-                </div>
-              </div>
-
-              <div class="col-12">
-                <label for="productNotes" class="form-label">Notas</label>
-                <textarea id="productNotes" rows="2" class="form-control"></textarea>
-              </div>
-
-              <div class="col-12 col-md-6">
-                <label class="form-label d-block">Forma de despacho</label>
-                <div class="btn-group" role="group" aria-label="Forma de despacho">
-                  <input type="radio" class="btn-check" name="dispatchForm" id="dispatchFormSell" value="se_vende" autocomplete="off" checked>
-                  <!-- CAMBIO: antes decía "Se vende" -->
-                  <label class="btn btn-outline-primary" for="dispatchFormSell">Producto</label>
-
-                  <input type="radio" class="btn-check" name="dispatchForm" id="dispatchFormKit" value="kit" autocomplete="off">
-                  <label class="btn btn-outline-primary" for="dispatchFormKit">Kit</label>
-                </div>
-
-                <div class="form-check form-switch mt-3">
-                  <input class="form-check-input" type="checkbox" id="productIsActive" checked>
-                  <label class="form-check-label" for="productIsActive">Activo</label>
                 </div>
               </div>
             </div>
@@ -292,14 +254,16 @@
                 <table class="table table-sm align-middle m-0">
                   <thead>
                     <tr>
-                      <th style="width:55%">Producto componente</th>
-                      <th style="width:25%">Cantidad</th>
-                      <th class="text-end" style="width:20%">Acciones</th>
+                      <th style="width:25%">Sub categoría</th>
+                      <th style="width:15%">Cantidad</th>
+                      <th style="width:15%">Obligatorio</th>
+                      <th style="width:35%">Productos</th>
+                      <th class="text-end" style="width:10%">Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="kitComponentsBody">
                     <tr class="text-muted">
-                      <td colspan="3" class="small text-center">Sin componentes</td>
+                      <td colspan="5" class="small text-center">Sin componentes</td>
                     </tr>
                   </tbody>
                 </table>
@@ -319,7 +283,6 @@
     </div>
   </div>
 
-  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -328,11 +291,8 @@
   <script src="js/app.js"></script>
   <script src="js/config.js"></script>
   <script src="js/supabase_client.js"></script>
-
-  <!-- Componente DropdownPlus -->
+  <script src="js/sidebar_loader.js"></script>
   <script src="js/components/dropdownPlus.js"></script>
-
-  <!-- Lógica de productos -->
   <script src="js/products.js"></script>
 </body>
 </html>
